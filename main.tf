@@ -109,8 +109,9 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   }
 
   tags = {
-    Environment = "prod"
-
+    iac         = "true"
+    environment = var.envTag
+    app         = local.app
   }
 
   viewer_certificate {

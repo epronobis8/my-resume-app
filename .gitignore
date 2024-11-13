@@ -1,3 +1,10 @@
 .terraform.lock.hcl
 terraform.tfstate*
 .terraform/
+../.DS_Store
+checkov-scan.sh
+tf.json
+tf.plan
+../.DS_Store
+results.json
+skip-check.txt

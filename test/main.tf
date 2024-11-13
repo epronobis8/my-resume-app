@@ -36,36 +36,41 @@ resource "aws_s3_bucket" "bucket" {
   }
 }
 
-/*
-resource "aws_s3_bucket_policy" "policy" {
+resource "aws_s3_bucket_public_access_block" "example" {
   bucket = aws_s3_bucket.bucket.id
-  policy = data.aws_iam_policy_document.my-cdn-cf-policy.json
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+
 }
-*/
 
 resource "aws_s3_bucket_policy" "cloudfront_s3_bucket_policy" {
   bucket = aws_s3_bucket.bucket.id
-  policy = jsonencode({
-    Version = "2008-10-17"
-    Id      = "PolicyForCloudFrontPrivateContent"
-    Statement = [
-      {
-        Sid    = "AllowCloudFrontServicePrincipal"
-        Effect = "Allow"
-        Principal = {
-          Service = "cloudfront.amazonaws.com"
-        }
-        Action   = "s3:GetObject"
-        Resource = "${aws_s3_bucket.bucket.arn}/*"
-        Condition = {
-          StringEquals = {
-            "AWS:SourceArn" = aws_cloudfront_distribution.s3_distribution.arn
-          }
-        }
-      }
-    ]
-  })
+  policy = data.aws_iam_policy_document.policy.json
 }
+
+
+data "aws_iam_policy_document" "policy" {
+  statement {
+    sid = "1"
+    principals {
+      type        = "AWS"
+      identifiers = [aws_cloudfront_origin_access_identity.my_oai.iam_arn]
+    }
+
+    actions = [
+      "s3:GetObject"
+    ]
+
+    resources = [
+      "${aws_s3_bucket.bucket.arn}/*"
+    ]
+  }
+}
+
+
 ################################################################################
 # Cloudfront Distribution
 ################################################################################
@@ -111,13 +116,15 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
     min_ttl                = 0
     default_ttl            = 3600
     max_ttl                = 86400
+    
   }
 
   price_class = "PriceClass_All"
 
   restrictions {
     geo_restriction {
-      restriction_type = "none"
+      restriction_type = "whitelist"
+      locations = ["US", "CA"]
     }
   }
 
@@ -128,10 +135,9 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   }
 
   viewer_certificate {
-    
-    #acm_certificate_arn = var.certarn
     acm_certificate_arn = data.aws_ssm_parameter.cert.value
     ssl_support_method  = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 }
 
